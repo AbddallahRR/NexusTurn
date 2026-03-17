@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusTurn – Monitor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: #1a1a1a;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #333;
+    }
+    .topbar-logo { font-size: 20px; font-weight: 500; }
+    .topbar-hora { font-size: 15px; color: #888; font-variant-numeric: tabular-nums; }
+
+    .main { flex: 1; display: grid; grid-template-columns: 1fr 300px; }
+
+    /* Panel turnos */
+    .panel-turnos { padding: 32px; display: flex; flex-direction: column; gap: 20px; }
+
+    .ventanilla-card {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #2a2a2a;
+      transition: border-color .3s, background .3s;
+    }
+    .ventanilla-card.activa {
+      border-color: #534AB7;
+      background: #1a1830;
+    }
+    .v-label  { font-size: 13px; color: #888; margin-bottom: 6px; }
+    .v-numero { font-size: 48px; font-weight: 600; color: white; line-height: 1; }
+    .v-sub    { font-size: 14px; color: #aaa; margin-top: 6px; }
+    .v-badge  {
+      background: #534AB7;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .v-badge.libre { background: #2a2a2a; color: #555; }
+
+    .cola-titulo {
+      font-size: 12px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .cola-lista { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cola-item {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 18px;
+      font-weight: 500;
+      color: #ccc;
+    }
+
+    /* Panel QR */
+    .panel-qr {
+      background: #1a1a1a;
+      border-left: 1px solid #2a2a2a;
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      text-align: center;
+    }
+    .qr-titulo { font-size: 16px; font-weight: 500; color: #ccc; }
+    .qr-box {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .qr-url {
+      font-size: 13px;
+      color: #534AB7;
+      background: #1e1e1e;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-family: monospace;
+    }
+    .qr-sub { font-size: 13px; color: #666; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-logo">NexusTurn</div>
+    <div class="topbar-hora" id="reloj">—</div>
+  </div>
+
+  <div class="main">
+
+    <div class="panel-turnos" id="panel-turnos">
+      <!-- Se llena dinámicamente -->
+    </div>
+
+    <div class="panel-qr">
+      <div class="qr-titulo">Obtén tu turno</div>
+      <div class="qr-box">
+        <div id="qr-codigo"></div>
+      </div>
+      <div class="qr-url" id="qr-url">turnos.local</div>
+      <div class="qr-sub">Escanea con la cámara<br>de tu celular</div>
+    </div>
+
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    // ── QR ────────────────────────────────────────────────────
+    // Usa automáticamente la URL del servidor actual
+    const urlServidor = window.location.origin + '/turno';
+    document.getElementById('qr-url').textContent = urlServidor;
+
+    new QRCode(document.getElementById('qr-codigo'), {
+      text: urlServidor,
+      width: 180,
+      height: 180,
+      colorDark: '#111111',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    // ── Reloj ─────────────────────────────────────────────────
+    function actualizarReloj() {
+      document.getElementById('reloj').textContent =
+        new Date().toLocaleTimeString('es-MX', {
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+    }
+    actualizarReloj();
+    setInterval(actualizarReloj, 1000);
+
+    // ── Datos del monitor ─────────────────────────────────────
+    async function actualizarMonitor() {
+      try {
+        const res = await fetch('/api/monitor');
+        if (!res.ok) return;
+        const datos = await res.json();
+        renderMonitor(datos);
+      } catch (err) {
+        console.error('Error al actualizar monitor:', err);
+      }
+    }
+
+    function renderMonitor(datos) {
+      const panel = document.getElementById('panel-turnos');
+      panel.innerHTML = '';
+
+      // Tarjetas por ventanilla
+      datos.ventanillas.forEach(v => {
+        const activa = v.turno_actual !== null;
+        const card = document.createElement('div');
+        card.className = 'ventanilla-card' + (activa ? ' activa' : '');
+        card.innerHTML = `
+          <div>
+            <div class="v-label">Ventanilla ${v.numero}</div>
+            <div class="v-numero">${activa ? v.turno_actual : '—'}</div>
+            <div class="v-sub">${activa ? 'Pase a la ventanilla' : 'Sin operador'}</div>
+          </div>
+          <div class="v-badge ${activa ? '' : 'libre'}">
+            ${activa ? 'Atendiendo' : 'Cerrada'}
+          </div>
+        `;
+        panel.appendChild(card);
+      });
+
+      // Cola siguiente
+      if (datos.cola_siguiente.length > 0) {
+        const colaDiv = document.createElement('div');
+        colaDiv.innerHTML = `
+          <div class="cola-titulo">Siguientes en cola</div>
+          <div class="cola-lista">
+            ${datos.cola_siguiente.map(n => `<div class="cola-item">${n}</div>`).join('')}
+          </div>
+        `;
+        panel.appendChild(colaDiv);
+      }
+    }
+    
+    actualizarMonitor();
+
+    // actualiza cada 3 segundos
+    function conectarMonitor() {
+      const ws = new WebSocket(`ws://${location.host}/api/ws/monitor`);
+
+      ws.onopen = () => {
+        console.log('Monitor conectado');
+      };
+
+      ws.onmessage = (evento) => {
+        const datos = JSON.parse(evento.data);
+        renderMonitor(datos);
+      };
+
+      ws.onclose = () => {
+        // Si se cae la conexión, reintenta en 3 segundos
+        console.log('Conexión perdida, reconectando...');
+        setTimeout(conectarMonitor, 3000);
+      };
+    }
+
+    conectarMonitor();
+  </script>
+
+</body>
+</html>

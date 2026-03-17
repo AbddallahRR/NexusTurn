@@ -227,24 +227,78 @@
 
     // ── Funciones de UI ───────────────────────────────────────
 
-    function mostrarTurno(datos) {
-      turnoActual = datos;
+    let wsUsuario = null;
 
-      document.getElementById('num-turno').textContent = datos.numero;
-      document.getElementById('turno-detalle').textContent =
+    function mostrarTurno(datos) {
+    turnoActual = datos;
+
+    document.getElementById('num-turno').textContent = datos.numero;
+    actualizarDetalle(datos);
+
+    vistaSolicitar.style.display = 'none';
+    turnoCard.classList.add('visible');
+    botonesAccion.style.display  = 'grid';
+    btnModificar.textContent = 'Modificar';
+    btnModificar.disabled    = false;
+    btnCancelar.textContent  = 'Cancelar';
+    btnCancelar.disabled     = false;
+
+    // Conecta el WebSocket para recibir actualizaciones en tiempo real
+    conectarWsUsuario(datos.id);
+    }
+
+    function actualizarDetalle(datos) {
+    document.getElementById('turno-detalle').textContent =
         `Ventanilla ${datos.ventanilla ?? '—'} · Estimado ${datos.tiempo_estimado} min`;
 
-      vistaSolicitar.style.display  = 'none';
-      turnoCard.classList.add('visible');
-      botonesAccion.style.display   = 'grid';
+    // Resetea alertas antes de recalcular
+    document.getElementById('alerta-cerca').classList.remove('visible');
+    document.getElementById('alerta-llamado').classList.remove('visible');
 
-      // Alertas según posición en la cola
-      if (datos.personas_delante <= 3) {
-        document.getElementById('alerta-cerca').classList.add('visible');
-      }
-      if (datos.personas_delante === 0) {
+    // Muestra alertas según la posición ACTUAL en la cola
+    if (datos.estado === 'LLAMADO' || datos.posicion === 0) {
         document.getElementById('alerta-llamado').classList.add('visible');
-      }
+    } else if (datos.posicion <= 3) {
+        document.getElementById('alerta-cerca').classList.add('visible');
+    }
+    }
+
+    function conectarWsUsuario(turnoId) {
+    // Cierra conexión anterior si existía
+    if (wsUsuario) wsUsuario.close();
+
+    wsUsuario = new WebSocket(`ws://${location.host}/api/ws/turno/${turnoId}`);
+
+    wsUsuario.onmessage = (evento) => {
+        const datos = JSON.parse(evento.data);
+        // Actualiza detalle y alertas con la posición real
+        actualizarDetalle(datos);
+    };
+
+    wsUsuario.onclose = () => {
+        // Reintenta si sigue teniendo turno activo
+        if (turnoActual) {
+        setTimeout(() => conectarWsUsuario(turnoActual.id), 3000);
+        }
+    };
+    }
+
+    function limpiarVista() {
+    turnoActual = null;
+
+    // Cierra el WebSocket al cancelar
+    if (wsUsuario) {
+        wsUsuario.close();
+        wsUsuario = null;
+    }
+
+    turnoCard.classList.remove('visible');
+    botonesAccion.style.display  = 'none';
+    vistaSolicitar.style.display = 'block';
+    btnSolicitar.textContent = 'Solicitar turno';
+    btnSolicitar.disabled    = false;
+    document.getElementById('alerta-cerca').classList.remove('visible');
+    document.getElementById('alerta-llamado').classList.remove('visible');
     }
 
     function limpiarVista() {
