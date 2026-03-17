@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusTurn</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f0f0f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: #1a1a1a;
+      color: white;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 500;
+    }
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      background: #444;
+      border-radius: 4px;
+    }
+    .header-menu {
+      width: 28px;
+      height: 28px;
+      background: #444;
+      border-radius: 4px;
+    }
+
+    /* ── Layout ── */
+    .content {
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: #111;
+      margin-bottom: 10px;
+    }
+
+    /* ── Tarjeta del turno ── */
+    .turno-card {
+      background: #e8e8e8;
+      border-radius: 8px;
+      padding: 16px;
+      display: none;
+    }
+    .turno-card.visible { display: block; }
+
+    .turno-label { font-size: 13px; color: #555; margin-bottom: 4px; }
+    .turno-numero { font-size: 26px; font-weight: 600; color: #111; margin-bottom: 6px; }
+    .turno-detalle { font-size: 13px; color: #555; }
+
+    /* ── Botón solicitar ── */
+    .btn-solicitar {
+      background: #1a1a1a;
+      color: white;
+      width: 100%;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s;
+    }
+    .btn-solicitar:hover { opacity: .85; }
+    .btn-solicitar:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Botones de acción ── */
+    .botones {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .btn {
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: #e0e0e0;
+      color: #111;
+      transition: background .15s, opacity .15s;
+    }
+    .btn:hover { background: #d0d0d0; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-cancelar:hover { background: #f0c0c0; color: #900; }
+
+    /* ── Alertas ── */
+    .alertas-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .alerta {
+      background: #e8e8e8;
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #111;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .3s, transform .3s;
+    }
+    .alerta.visible { opacity: 1; transform: translateY(0); }
+
+    .alerta-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .alerta-icon.naranja { background: #e07020; }
+    .alerta-icon.verde   { background: #1a9a50; }
+
+    /* ── Mensaje de error ── */
+    .error-msg {
+      color: #c0392b;
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <div class="header-icon"></div>
+      NexusTurn
+    </div>
+    <div class="header-menu"></div>
+  </div>
+
+  <div class="content">
+
+    <!-- Turno actual -->
+    <div>
+      <div class="section-title">Turno actual</div>
+
+      <!-- Sin turno: botón para solicitar -->
+      <div id="vista-solicitar">
+        <button class="btn-solicitar" id="btn-solicitar">
+          Solicitar turno
+        </button>
+        <div class="error-msg" id="error-msg">
+          No se pudo conectar con el servidor. Intenta de nuevo.
+        </div>
+      </div>
+
+      <!-- Con turno: tarjeta de información -->
+      <div class="turno-card" id="turno-card">
+        <div class="turno-label">Número de turno</div>
+        <div class="turno-numero" id="num-turno">—</div>
+        <div class="turno-detalle" id="turno-detalle">—</div>
+      </div>
+    </div>
+
+    <!-- Botones Modificar / Cancelar (ocultos hasta tener turno) -->
+    <div class="botones" id="botones-accion" style="display: none;">
+      <button class="btn" id="btn-modificar">Modificar</button>
+      <button class="btn btn-cancelar" id="btn-cancelar">Cancelar</button>
+    </div>
+
+    <!-- Alertas -->
+    <div>
+      <div class="section-title">Alertas</div>
+      <div class="alertas-lista">
+        <div class="alerta" id="alerta-cerca">
+          <div class="alerta-icon naranja"></div>
+          Tu turno está a 3 lugares
+        </div>
+        <div class="alerta" id="alerta-llamado">
+          <div class="alerta-icon verde"></div>
+          Tu turno está siendo atendido
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Estado local ──────────────────────────────────────────
+    let turnoActual = null;
+
+    // ── Referencias al DOM ────────────────────────────────────
+    const btnSolicitar  = document.getElementById('btn-solicitar');
+    const btnModificar  = document.getElementById('btn-modificar');
+    const btnCancelar   = document.getElementById('btn-cancelar');
+    const errorMsg      = document.getElementById('error-msg');
+    const turnoCard     = document.getElementById('turno-card');
+    const vistaSolicitar = document.getElementById('vista-solicitar');
+    const botonesAccion = document.getElementById('botones-accion');
+
+    // ── Eventos ───────────────────────────────────────────────
+    btnSolicitar.addEventListener('click', solicitarTurno);
+    btnModificar.addEventListener('click', modificarTurno);
+    btnCancelar.addEventListener('click', cancelarTurno);
+
+    // ── Funciones de UI ───────────────────────────────────────
+
+    function mostrarTurno(datos) {
+      turnoActual = datos;
+
+      document.getElementById('num-turno').textContent = datos.numero;
+      document.getElementById('turno-detalle').textContent =
+        `Ventanilla ${datos.ventanilla ?? '—'} · Estimado ${datos.tiempo_estimado} min`;
+
+      vistaSolicitar.style.display  = 'none';
+      turnoCard.classList.add('visible');
+      botonesAccion.style.display   = 'grid';
+
+      // Alertas según posición en la cola
+      if (datos.personas_delante <= 3) {
+        document.getElementById('alerta-cerca').classList.add('visible');
+      }
+      if (datos.personas_delante === 0) {
+        document.getElementById('alerta-llamado').classList.add('visible');
+      }
+    }
+
+    function limpiarVista() {
+      turnoActual = null;
+
+      turnoCard.classList.remove('visible');
+      botonesAccion.style.display  = 'none';
+      vistaSolicitar.style.display = 'block';
+
+      btnSolicitar.textContent = 'Solicitar turno';
+      btnSolicitar.disabled    = false;
+
+      document.getElementById('alerta-cerca').classList.remove('visible');
+      document.getElementById('alerta-llamado').classList.remove('visible');
+    }
+
+    // ── Llamadas a la API ─────────────────────────────────────
+
+    async function solicitarTurno() {
+      btnSolicitar.textContent = 'Solicitando...';
+      btnSolicitar.disabled    = true;
+      errorMsg.style.display   = 'none';
+
+      try {
+        const res = await fetch('/api/turno', { method: 'POST' });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const datos = await res.json();
+        mostrarTurno(datos);
+      } catch (err) {
+        console.error(err);
+        btnSolicitar.textContent = 'Solicitar turno';
+        btnSolicitar.disabled    = false;
+        errorMsg.style.display   = 'block';
+      }
+    }
+
+    async function modificarTurno() {
+      // Modificar = cancelar el turno actual y pedir el siguiente al final de la cola
+      if (!turnoActual) return;
+
+      btnModificar.textContent = 'Modificando...';
+      btnModificar.disabled    = true;
+      btnCancelar.disabled     = true;
+
+      try {
+        // 1. Cancela el turno actual
+        const resCancelar = await fetch(`/api/turno/${turnoActual.id}/cancelar`, {
+          method: 'PATCH'
+        });
+        if (!resCancelar.ok) throw new Error(`Error al cancelar: ${resCancelar.status}`);
+
+        // 2. Solicita uno nuevo
+        const resSolicitar = await fetch('/api/turno', { method: 'POST' });
+        if (!resSolicitar.ok) throw new Error(`Error al solicitar: ${resSolicitar.status}`);
+
+        const datos = await resSolicitar.json();
+        mostrarTurno(datos);
+
+      } catch (err) {
+        console.error(err);
+        btnModificar.textContent = 'Modificar';
+        btnModificar.disabled    = false;
+        btnCancelar.disabled     = false;
+      }
+    }
+
+    async function cancelarTurno() {
+      if (!turnoActual) return;
+
+      btnCancelar.textContent  = 'Cancelando...';
+      btnCancelar.disabled     = true;
+      btnModificar.disabled    = true;
+
+      try {
+        const res = await fetch(`/api/turno/${turnoActual.id}/cancelar`, {
+          method: 'PATCH'
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        limpiarVista();
+      } catch (err) {
+        console.error(err);
+        btnCancelar.textContent = 'Cancelar';
+        btnCancelar.disabled    = false;
+        btnModificar.disabled   = false;
+      }
+    }
+  </script>
+
+</body>
+</html>
