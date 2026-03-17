@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from datetime import datetime
 from database import get_connection
 from models import TurnoRespuesta
-from fastapi import WebSocket, WebSocketDisconnect
 import json
 
 router = APIRouter()
+
+# ── Conexiones activas ────────────────────────────────────────────────────────
+monitores_conectados: list[WebSocket] = []
+usuarios_conectados: dict[int, WebSocket] = {}
+
+# ── Generador de número de turno ──────────────────────────────────────────────
 
 def generar_numero_turno(conn) -> str:
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -14,6 +19,8 @@ def generar_numero_turno(conn) -> str:
     )
     count = cursor.fetchone()[0]
     return f"A{(count + 1):03d}"
+
+# ── Endpoints HTTP ────────────────────────────────────────────────────────────
 
 @router.post("/turno", response_model=TurnoRespuesta)
 async def solicitar_turno():
@@ -25,7 +32,7 @@ async def solicitar_turno():
         "INSERT INTO turnos (numero, hora_creacion, estado) VALUES (?, ?, ?)",
         (numero, hora_creacion, "EN_COLA")
     )
-    turno_id = cursor.lastrowid  # captura el id generado
+    turno_id = cursor.lastrowid
     conn.commit()
 
     cursor = conn.execute(
@@ -34,7 +41,7 @@ async def solicitar_turno():
     personas_delante = max(0, cursor.fetchone()[0] - 1)
     conn.close()
 
-    await notificar_monitores()
+    await notificar_todos()
 
     return TurnoRespuesta(
         id=turno_id,
@@ -47,7 +54,6 @@ async def solicitar_turno():
 async def cancelar_turno(turno_id: int):
     conn = get_connection()
 
-    # verifica que el turno exista y esté en un estado cancelable
     cursor = conn.execute(
         "SELECT estado FROM turnos WHERE id = ?", (turno_id,)
     )
@@ -67,63 +73,15 @@ async def cancelar_turno(turno_id: int):
     conn.commit()
     conn.close()
 
-    await notificar_monitores()
+    await notificar_todos()
 
     return {"ok": True}
 
 @router.get("/monitor")
 def estado_monitor():
-    conn = get_connection()
+    return obtener_estado_monitor()
 
-    # Turnos siendo atendidos por ventanilla
-    cursor = conn.execute("""
-        SELECT ventanilla, numero
-        FROM turnos
-        WHERE estado = 'ATENDIENDO'
-        ORDER BY ventanilla
-    """)
-    atendiendo = {row["ventanilla"]: row["numero"] for row in cursor.fetchall()}
-
-    # Arma la lista de ventanillas (ajusta el rango según cuántas tengas)
-    ventanillas = []
-    for numero in range(1, 4):
-        ventanillas.append({
-            "numero": numero,
-            "turno_actual": atendiendo.get(numero)
-        })
-
-    # Próximos 5 en cola
-    cursor = conn.execute("""
-        SELECT numero FROM turnos
-        WHERE estado = 'EN_COLA'
-        ORDER BY id ASC
-        LIMIT 5
-    """)
-    cola_siguiente = [row["numero"] for row in cursor.fetchall()]
-    conn.close()
-
-    return {
-        "ventanillas": ventanillas,
-        "cola_siguiente": cola_siguiente
-    }    
-
-monitores_conectados: list[WebSocket] = []
-
-async def notificar_monitores():
-    """Llama a esto cada vez que cambie algo en la cola."""
-    if not monitores_conectados:
-        return
-    datos = obtener_estado_monitor()  # la misma olgica de /api/monitor
-    mensaje = json.dumps(datos)
-    for ws in monitores_conectados.copy():
-        try:
-            await ws.send_text(mensaje)
-        except Exception:
-            monitores_conectados.remove(ws)
-
-async def notificar_todos():
-    await notificar_monitores()
-    await notificar_usuarios()
+# ── Lógica compartida ─────────────────────────────────────────────────────────
 
 def obtener_estado_monitor():
     conn = get_connection()
@@ -148,39 +106,10 @@ def obtener_estado_monitor():
     conn.close()
     return {"ventanillas": ventanillas, "cola_siguiente": cola}
 
-@router.websocket("/ws/monitor")
-async def websocket_monitor(websocket: WebSocket):
-    await websocket.accept()
-    monitores_conectados.append(websocket)
-    try:
-        # Al conectarse, manda el estado actual inmediatamente
-        datos = obtener_estado_monitor()
-        await websocket.send_text(json.dumps(datos))
-        # Mantiene la conexión abierta
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        monitores_conectados.remove(websocket)
-
-# Diccionario: turno_id → websocket del celular
-usuarios_conectados: dict[int, WebSocket] = {}
-
-@router.websocket("/ws/turno/{turno_id}")
-async def websocket_usuario(websocket: WebSocket, turno_id: int):
-    await websocket.accept()
-    usuarios_conectados[turno_id] = websocket
-    try:
-        # Manda el estado actual al conectarse
-        await push_estado_usuario(turno_id, websocket)
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        usuarios_conectados.pop(turno_id, None)
-
 async def push_estado_usuario(turno_id: int, websocket: WebSocket):
+    """Calcula la posición real del turno y la envía al celular."""
     conn = get_connection()
 
-    # Busca el turno
     cursor = conn.execute(
         "SELECT numero, estado, ventanilla FROM turnos WHERE id = ?", (turno_id,)
     )
@@ -189,7 +118,7 @@ async def push_estado_usuario(turno_id: int, websocket: WebSocket):
         conn.close()
         return
 
-    # Calcula posición real en la cola en este momento
+    # Cuenta cuántos turnos EN_COLA tienen id menor (están delante)
     cursor = conn.execute("""
         SELECT COUNT(*) FROM turnos
         WHERE estado = 'EN_COLA' AND id < ?
@@ -204,10 +133,49 @@ async def push_estado_usuario(turno_id: int, websocket: WebSocket):
         "tiempo_estimado": posicion * 4
     }))
 
+# ── Notificaciones ────────────────────────────────────────────────────────────
+
+async def notificar_todos():
+    await notificar_monitores()
+    await notificar_usuarios()
+
+async def notificar_monitores():
+    if not monitores_conectados:
+        return
+    mensaje = json.dumps(obtener_estado_monitor())
+    for ws in monitores_conectados.copy():
+        try:
+            await ws.send_text(mensaje)
+        except Exception:
+            monitores_conectados.remove(ws)
+
 async def notificar_usuarios():
-    """Llama a esto cada vez que la cola cambie."""
     for turno_id, ws in list(usuarios_conectados.items()):
         try:
             await push_estado_usuario(turno_id, ws)
         except Exception:
-            usuarios_conectados.pop(turno_id, None)        
+            usuarios_conectados.pop(turno_id, None)
+
+# ── WebSockets ────────────────────────────────────────────────────────────────
+
+@router.websocket("/ws/monitor")
+async def websocket_monitor(websocket: WebSocket):
+    await websocket.accept()
+    monitores_conectados.append(websocket)
+    try:
+        await websocket.send_text(json.dumps(obtener_estado_monitor()))
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        monitores_conectados.remove(websocket)
+
+@router.websocket("/ws/turno/{turno_id}")
+async def websocket_usuario(websocket: WebSocket, turno_id: int):
+    await websocket.accept()
+    usuarios_conectados[turno_id] = websocket
+    try:
+        await push_estado_usuario(turno_id, websocket)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        usuarios_conectados.pop(turno_id, None)
