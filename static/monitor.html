@@ -2,12 +2,17 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>NexusTurn – Monitor</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       background: #111;
       color: white;
       min-height: 100vh;
@@ -15,217 +20,395 @@
       flex-direction: column;
     }
 
+    /* ─────────────────────────────── TOPBAR ─────────────────────────────── */
     .topbar {
       background: #1a1a1a;
-      padding: 16px 32px;
+      padding: 16px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
       border-bottom: 1px solid #333;
     }
-    .topbar-logo { font-size: 20px; font-weight: 500; }
-    .topbar-hora { font-size: 15px; color: #888; font-variant-numeric: tabular-nums; }
+    .topbar-logo {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: -0.2px;
+    }
+    .topbar-hora {
+      font-size: 15px;
+      color: #888;
+      font-variant-numeric: tabular-nums;
+      font-family: monospace;
+    }
 
-    .main { flex: 1; display: grid; grid-template-columns: 1fr 300px; }
+    /* ─────────────────────────────── LAYOUT PRINCIPAL ──────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: row;        /* desktop: filas */
+      gap: 0;
+    }
 
-    /* Panel turnos */
-    .panel-turnos { padding: 32px; display: flex; flex-direction: column; gap: 20px; }
+    /* Panel turnos (izquierda) */
+    .panel-turnos {
+      flex: 1;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-width: 0; /* evita overflow */
+    }
 
+    /* Panel QR (derecha) */
+    .panel-qr {
+      width: 320px;               /* ancho fijo en desktop */
+      background: #1a1a1a;
+      border-left: 1px solid #2a2a2a;
+      padding: 32px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* ─────────────────────────────── VENTANILLAS ───────────────────────── */
     .ventanilla-card {
       background: #1e1e1e;
-      border-radius: 12px;
-      padding: 24px 28px;
+      border-radius: 16px;
+      padding: 20px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
       border: 1px solid #2a2a2a;
-      transition: border-color .3s, background .3s;
+      transition: border-color 0.2s, background 0.2s;
     }
     .ventanilla-card.activa {
       border-color: #534AB7;
       background: #1a1830;
     }
-    .v-label  { font-size: 13px; color: #888; margin-bottom: 6px; }
-    .v-numero { font-size: 48px; font-weight: 600; color: white; line-height: 1; }
-    .v-sub    { font-size: 14px; color: #aaa; margin-top: 6px; }
-    .v-badge  {
+    .v-label {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+    .v-numero {
+      font-size: 48px;
+      font-weight: 700;
+      color: white;
+      line-height: 1;
+    }
+    .v-sub {
+      font-size: 14px;
+      color: #aaa;
+      margin-top: 6px;
+    }
+    .v-badge {
       background: #534AB7;
       color: white;
-      padding: 6px 14px;
-      border-radius: 20px;
+      padding: 6px 16px;
+      border-radius: 40px;
       font-size: 13px;
       font-weight: 500;
+      white-space: nowrap;
     }
-    .v-badge.libre { background: #2a2a2a; color: #555; }
+    .v-badge.libre {
+      background: #2a2a2a;
+      color: #777;
+    }
 
+    /* ─────────────────────────────── COLA ───────────────────────────────── */
     .cola-titulo {
       font-size: 12px;
-      color: #555;
+      color: #5a5a7a;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
-    .cola-lista { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cola-lista {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
     .cola-item {
       background: #1e1e1e;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      padding: 10px 18px;
+      border: 1px solid #2e2e3a;
+      border-radius: 12px;
+      padding: 10px 20px;
       font-size: 18px;
+      font-weight: 500;
+      color: #ddd;
+    }
+
+    /* ─────────────────────────────── QR ─────────────────────────────────── */
+    .qr-titulo {
+      font-size: 16px;
       font-weight: 500;
       color: #ccc;
     }
-
-    /* Panel QR */
-    .panel-qr {
-      background: #1a1a1a;
-      border-left: 1px solid #2a2a2a;
-      padding: 32px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      text-align: center;
-    }
-    .qr-titulo { font-size: 16px; font-weight: 500; color: #ccc; }
     .qr-box {
       background: white;
-      border-radius: 12px;
+      border-radius: 16px;
       padding: 16px;
+      display: inline-block;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    .qr-box canvas,
+    .qr-box img {
+      display: block;
+      width: 180px;
+      height: 180px;
+      max-width: 100%;
+      height: auto;
     }
     .qr-url {
-      font-size: 13px;
-      color: #534AB7;
-      background: #1e1e1e;
-      padding: 8px 16px;
-      border-radius: 20px;
+      font-size: 14px;
+      color: #9c8eff;
+      background: #1e1e2a;
+      padding: 8px 18px;
+      border-radius: 40px;
       font-family: monospace;
+      word-break: break-all;
+      max-width: 100%;
     }
-    .qr-sub { font-size: 13px; color: #666; line-height: 1.6; }
+    .qr-sub {
+      font-size: 13px;
+      color: #6a6a7a;
+      line-height: 1.5;
+    }
+
+    /* ========================== RESPONSIVE ========================== */
+    @media (max-width: 900px) {
+      .panel-turnos {
+        padding: 20px 16px;
+        gap: 18px;
+      }
+      .ventanilla-card {
+        padding: 16px 20px;
+      }
+      .v-numero {
+        font-size: 38px;
+      }
+      .v-badge {
+        font-size: 12px;
+        padding: 4px 12px;
+      }
+      .cola-item {
+        font-size: 16px;
+        padding: 8px 16px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main {
+        flex-direction: column;    /* apila panel turnos y QR */
+      }
+      .panel-qr {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid #2a2a2a;
+        padding: 28px 20px;
+        order: 2;                 /* QR abajo en móvil */
+      }
+      .panel-turnos {
+        order: 1;
+      }
+      .topbar {
+        padding: 12px 16px;
+      }
+      .topbar-logo {
+        font-size: 18px;
+      }
+      .ventanilla-card {
+        padding: 14px 18px;
+      }
+      .v-numero {
+        font-size: 32px;
+      }
+      .v-sub {
+        font-size: 12px;
+      }
+      .qr-box canvas,
+      .qr-box img {
+        width: 140px;
+        height: 140px;
+      }
+      .qr-url {
+        font-size: 12px;
+        padding: 6px 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .ventanilla-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .v-badge {
+        align-self: flex-start;
+      }
+      .cola-lista {
+        gap: 8px;
+      }
+      .cola-item {
+        font-size: 14px;
+        padding: 6px 14px;
+      }
+      .panel-qr {
+        padding: 24px 16px;
+      }
+      .qr-box canvas,
+      .qr-box img {
+        width: 120px;
+        height: 120px;
+      }
+    }
+
+    /* pequeñas correcciones para pantallas muy estrechas */
+    @media (max-width: 360px) {
+      .v-numero {
+        font-size: 28px;
+      }
+      .qr-titulo {
+        font-size: 14px;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <div class="topbar">
-    <div class="topbar-logo">NexusTurn</div>
-    <div class="topbar-hora" id="reloj">—</div>
+<div class="topbar">
+  <div class="topbar-logo">NexusTurn</div>
+  <div class="topbar-hora" id="reloj">—</div>
+</div>
+
+<div class="main">
+  <div class="panel-turnos" id="panel-turnos">
+    <!-- llenado dinámico -->
   </div>
 
-  <div class="main">
-
-    <div class="panel-turnos" id="panel-turnos">
-      <!-- Se llena dinámicamente -->
+  <div class="panel-qr">
+    <div class="qr-titulo">Obtén tu turno</div>
+    <div class="qr-box">
+      <div id="qr-codigo"></div>
     </div>
-
-    <div class="panel-qr">
-      <div class="qr-titulo">Obtén tu turno</div>
-      <div class="qr-box">
-        <div id="qr-codigo"></div>
-      </div>
-      <div class="qr-url" id="qr-url">turnos.local</div>
-      <div class="qr-sub">Escanea con la cámara<br>de tu celular</div>
-    </div>
-
+    <div class="qr-url" id="qr-url">turnos.local</div>
+    <div class="qr-sub">Escanea con la cámara<br>de tu celular</div>
   </div>
+</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script>
-    // ── QR ────────────────────────────────────────────────────
-    // Usa automáticamente la URL del servidor actual
-    const urlServidor = window.location.origin + '/turno';
-    document.getElementById('qr-url').textContent = urlServidor;
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  // ── QR dinámico ──────────────────────────────────────────────
+  const urlServidor = window.location.origin + '/turno';
+  document.getElementById('qr-url').textContent = urlServidor;
 
-    new QRCode(document.getElementById('qr-codigo'), {
-      text: urlServidor,
-      width: 180,
-      height: 180,
-      colorDark: '#111111',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
+  // Limpiar y regenerar QR por si ya existía
+  const qrContainer = document.getElementById('qr-codigo');
+  qrContainer.innerHTML = '';
+  new QRCode(qrContainer, {
+    text: urlServidor,
+    width: 180,
+    height: 180,
+    colorDark: '#111111',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  // ── Reloj ────────────────────────────────────────────────────
+  function actualizarReloj() {
+    const ahora = new Date();
+    const horaStr = ahora.toLocaleTimeString('es-MX', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    document.getElementById('reloj').textContent = horaStr;
+  }
+  actualizarReloj();
+  setInterval(actualizarReloj, 1000);
+
+  // ── Monitor: fetch REST + WebSocket ─────────────────────────
+  async function actualizarMonitor() {
+    try {
+      const res = await fetch('/api/monitor');
+      if (!res.ok) return;
+      const datos = await res.json();
+      renderMonitor(datos);
+    } catch (err) {
+      console.error('Error al actualizar monitor (fetch):', err);
+    }
+  }
+
+  function renderMonitor(datos) {
+    const panel = document.getElementById('panel-turnos');
+    panel.innerHTML = '';
+
+    // Tarjetas de ventanillas
+    datos.ventanillas.forEach(v => {
+      const activa = v.turno_actual !== null;
+      const card = document.createElement('div');
+      card.className = 'ventanilla-card' + (activa ? ' activa' : '');
+      card.innerHTML = `
+        <div>
+          <div class="v-label">Ventanilla ${v.numero}</div>
+          <div class="v-numero">${activa ? v.turno_actual : '—'}</div>
+          <div class="v-sub">${activa ? 'Pase a la ventanilla' : 'Sin operador'}</div>
+        </div>
+        <div class="v-badge ${activa ? '' : 'libre'}">
+          ${activa ? 'Atendiendo' : 'Cerrada'}
+        </div>
+      `;
+      panel.appendChild(card);
     });
 
-    // ── Reloj ─────────────────────────────────────────────────
-    function actualizarReloj() {
-      document.getElementById('reloj').textContent =
-        new Date().toLocaleTimeString('es-MX', {
-          hour: '2-digit', minute: '2-digit', second: '2-digit'
-        });
+    // Siguientes turnos en cola
+    if (datos.cola_siguiente && datos.cola_siguiente.length > 0) {
+      const colaDiv = document.createElement('div');
+      colaDiv.innerHTML = `
+        <div class="cola-titulo">Siguientes en cola</div>
+        <div class="cola-lista">
+          ${datos.cola_siguiente.map(n => `<div class="cola-item">${n}</div>`).join('')}
+        </div>
+      `;
+      panel.appendChild(colaDiv);
     }
-    actualizarReloj();
-    setInterval(actualizarReloj, 1000);
+  }
 
-    // ── Datos del monitor ─────────────────────────────────────
-    async function actualizarMonitor() {
+  // WebSocket con reconexión automática
+  let ws = null;
+  function conectarMonitor() {
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${protocol}//${location.host}/api/ws/monitor`);
+
+    ws.onopen = () => console.log('Monitor conectado vía WS');
+    ws.onmessage = (evento) => {
       try {
-        const res = await fetch('/api/monitor');
-        if (!res.ok) return;
-        const datos = await res.json();
-        renderMonitor(datos);
-      } catch (err) {
-        console.error('Error al actualizar monitor:', err);
-      }
-    }
-
-    function renderMonitor(datos) {
-      const panel = document.getElementById('panel-turnos');
-      panel.innerHTML = '';
-
-      // Tarjetas por ventanilla
-      datos.ventanillas.forEach(v => {
-        const activa = v.turno_actual !== null;
-        const card = document.createElement('div');
-        card.className = 'ventanilla-card' + (activa ? ' activa' : '');
-        card.innerHTML = `
-          <div>
-            <div class="v-label">Ventanilla ${v.numero}</div>
-            <div class="v-numero">${activa ? v.turno_actual : '—'}</div>
-            <div class="v-sub">${activa ? 'Pase a la ventanilla' : 'Sin operador'}</div>
-          </div>
-          <div class="v-badge ${activa ? '' : 'libre'}">
-            ${activa ? 'Atendiendo' : 'Cerrada'}
-          </div>
-        `;
-        panel.appendChild(card);
-      });
-
-      // Cola siguiente
-      if (datos.cola_siguiente.length > 0) {
-        const colaDiv = document.createElement('div');
-        colaDiv.innerHTML = `
-          <div class="cola-titulo">Siguientes en cola</div>
-          <div class="cola-lista">
-            ${datos.cola_siguiente.map(n => `<div class="cola-item">${n}</div>`).join('')}
-          </div>
-        `;
-        panel.appendChild(colaDiv);
-      }
-    }
-    
-    actualizarMonitor();
-
-    // actualiza cada 3 segundos
-    function conectarMonitor() {
-      const ws = new WebSocket(`ws://${location.host}/api/ws/monitor`);
-
-      ws.onopen = () => {
-        console.log('Monitor conectado');
-      };
-
-      ws.onmessage = (evento) => {
         const datos = JSON.parse(evento.data);
         renderMonitor(datos);
-      };
+      } catch (e) {
+        console.warn('Error parseando WS:', e);
+      }
+    };
+    ws.onclose = () => {
+      console.log('Conexión WS perdida, reconectando en 3s...');
+      setTimeout(conectarMonitor, 3000);
+    };
+    ws.onerror = (err) => console.error('WebSocket error:', err);
+  }
 
-      ws.onclose = () => {
-        // Si se cae la conexión, reintenta en 3 segundos
-        console.log('Conexión perdida, reconectando...');
-        setTimeout(conectarMonitor, 3000);
-      };
-    }
-
-    conectarMonitor();
-  </script>
-
+  // Carga inicial y polling de respaldo (por si WS falla, cada 5s)
+  actualizarMonitor();
+  setInterval(actualizarMonitor, 5000);
+  conectarMonitor();
+</script>
 </body>
 </html>

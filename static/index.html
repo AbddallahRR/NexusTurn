@@ -1,270 +1,479 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NexusTurn</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #f0f0f0; min-height: 100vh; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>NexusTurn</title>
 
-    .header {
-      background: #1a1a1a; color: white;
-      padding: 14px 16px;
-      display: flex; align-items: center; justify-content: space-between;
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #eef1f5;
+}
+
+/* ========== SPLASH SCREEN ========== */
+.splash {
+    position: fixed;
+    width: 100%;
+    height: 100vh;
+    background: #1e293b;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 9999;
+}
+
+.logo-animado {
+    width: 200px;
+    max-width: 70%;
+    opacity: 0;
+    transform: scale(0.5);
+    animation: aparecer 1.5s ease forwards;
+    filter: drop-shadow(0px 8px 20px rgba(0,0,0,0.3));
+}
+
+@keyframes aparecer {
+    0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+    60% { opacity: 1; transform: scale(1.1) rotate(2deg); }
+    100% { transform: scale(1); }
+}
+
+.nombre {
+    color: white;
+    font-size: 22px;
+    margin-top: 10px;
+    opacity: 0;
+    animation: fade 1.5s ease forwards;
+}
+
+@keyframes fade {
+    to { opacity: 1; }
+}
+
+@keyframes salir {
+    to {
+        opacity: 0;
+        transform: scale(1.1);
     }
-    .header-logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 500; }
-    .header-icon { width: 28px; height: 28px; background: #444; border-radius: 4px; }
-    .header-menu { width: 28px; height: 28px; background: #444; border-radius: 4px; }
+}
 
-    .content {
-      padding: 20px 16px;
-      display: flex; flex-direction: column; gap: 20px;
-      max-width: 480px; margin: 0 auto;
-    }
+.splash.ocultar {
+    animation: salir 0.3s ease forwards;
+}
 
-    .section-title { font-size: 18px; font-weight: 500; color: #111; margin-bottom: 10px; }
+/* ========== APP PRINCIPAL ========== */
+.app {
+    max-width: 480px;
+    height: 100vh;
+    margin: auto;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #eef1f5;
+}
 
-    .turno-card { background: #e8e8e8; border-radius: 8px; padding: 16px; display: none; }
-    .turno-card.visible { display: block; }
-    .turno-label { font-size: 13px; color: #555; margin-bottom: 4px; }
-    .turno-numero { font-size: 26px; font-weight: 600; color: #111; margin-bottom: 6px; }
-    .turno-detalle { font-size: 13px; color: #555; }
+/* HEADER con botón asistente */
+.header {
+    background: #1e293b;
+    color: white;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: bold;
+}
+.header-titulo {
+    font-size: 18px;
+}
+.btn-asistente {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: normal;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-asistente:hover {
+    background: rgba(255,255,255,0.3);
+}
 
-    .btn-solicitar {
-      background: #1a1a1a; color: white; width: 100%;
-      padding: 16px; border-radius: 8px;
-      font-size: 16px; font-weight: 500;
-      cursor: pointer; border: none; transition: opacity .15s;
-    }
-    .btn-solicitar:hover { opacity: .85; }
-    .btn-solicitar:disabled { opacity: .5; cursor: not-allowed; }
+/* LOGO EN APP */
+.logo-app {
+    width: 260px;
+    max-width: 70%;
+    display: block;
+    margin: 15px auto 20px auto;
+    opacity: 0.95;
+    filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.2));
+}
 
-    .botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .btn {
-      padding: 14px; border-radius: 8px;
-      font-size: 15px; font-weight: 500;
-      cursor: pointer; border: none;
-      background: #e0e0e0; color: #111;
-      transition: background .15s, opacity .15s;
-    }
-    .btn:hover { background: #d0d0d0; }
-    .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn-cancelar:hover { background: #f0c0c0; color: #900; }
+/* CONTENIDO PRINCIPAL */
+.main {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
 
-    .alertas-lista { display: flex; flex-direction: column; gap: 10px; }
-    .alerta {
-      background: #e8e8e8; border-radius: 8px;
-      padding: 14px 16px;
-      display: flex; align-items: center; gap: 12px;
-      font-size: 14px; color: #111;
-      opacity: 0; transform: translateY(6px);
-      transition: opacity .3s, transform .3s;
-    }
-    .alerta.visible { opacity: 1; transform: translateY(0); }
-    .alerta-icon { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
-    .alerta-icon.naranja { background: #e07020; }
-    .alerta-icon.verde   { background: #1a9a50; }
+/* TARJETA DE TURNO */
+.card {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    text-align: center;
+}
 
-    .error-msg { color: #c0392b; font-size: 13px; margin-top: 10px; display: none; text-align: center; }
-  </style>
+.card-label {
+    font-size: 14px;
+    color: #6b7280;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.turno-numero {
+    font-size: 52px;
+    font-weight: 800;
+    color: #2563eb;
+    margin: 10px 0;
+    letter-spacing: 2px;
+}
+
+.turno-info {
+    font-size: 14px;
+    color: #4b5563;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+    margin-top: 8px;
+}
+
+/* BOTÓN SOLICITAR */
+.btn-solicitar {
+    background: #2563eb;
+    color: white;
+    width: 100%;
+    padding: 16px;
+    border-radius: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.2s, transform 0.1s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.btn-solicitar:hover { opacity: 0.9; transform: scale(0.98); }
+.btn-solicitar:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ALERTA */
+.alerta {
+    background: #fff7ed;
+    border-left: 6px solid #f59e0b;
+    padding: 14px 18px;
+    border-radius: 14px;
+    font-weight: 500;
+    color: #9b4c00;
+    transition: all 0.2s;
+}
+.alerta.activo {
+    background: #ecfdf5;
+    border-left-color: #22c55e;
+    color: #065f46;
+}
+.alerta.error {
+    background: #fee2e2;
+    border-left-color: #ef4444;
+    color: #991b1b;
+}
+
+/* BOTONES (modificar / cancelar) */
+.botones {
+    display: flex;
+    gap: 12px;
+}
+.botones button {
+    flex: 1;
+    padding: 14px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: 0.15s;
+}
+.btn-modificar {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+.btn-modificar:hover { background: #cbd5e1; }
+.btn-modificar:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-cancelar {
+    background: #ef4444;
+    color: white;
+}
+.btn-cancelar:hover { background: #dc2626; }
+.btn-cancelar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* FOOTER */
+.footer {
+    text-align: center;
+    padding: 12px;
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+/* OCULTAR ELEMENTOS SEGÚN ESTADO */
+.hidden {
+    display: none;
+}
+</style>
 </head>
 <body>
 
-  <div class="header">
-    <div class="header-logo">
-      <div class="header-icon"></div>
-      NexusTurn
-    </div>
-    <div class="header-menu"></div>
-  </div>
+<!-- SPLASH -->
+<div class="splash" id="splash">
+    <img src="static/logo.png" class="logo-animado" alt="NexusTurn" onerror="this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%233b82f6%22%2F%3E%3Ctext%20x%3D%2250%22%20y%3D%2267%22%20font-size%3D%2250%22%20text-anchor%3D%22middle%22%20fill%3D%22white%22%3ENT%3C%2Ftext%3E%3C%2Fsvg%3E'">
+    <div class="nombre">NexusTurn</div>
+</div>
 
-  <div class="content">
-
-    <div>
-      <div class="section-title">Turno actual</div>
-      <div id="vista-solicitar">
-        <button class="btn-solicitar" id="btn-solicitar">Solicitar turno</button>
-        <div class="error-msg" id="error-msg">No se pudo conectar con el servidor. Intenta de nuevo.</div>
-      </div>
-      <div class="turno-card" id="turno-card">
-        <div class="turno-label">Número de turno</div>
-        <div class="turno-numero" id="num-turno">—</div>
-        <div class="turno-detalle" id="turno-detalle">—</div>
-      </div>
+<!-- APP PRINCIPAL -->
+<div class="app" id="app">
+    <div class="header">
+        <span class="header-titulo">NexusTurn</span>
+        <button class="btn-asistente" id="btn-asistente">💬 Asistente IA</button>
     </div>
 
-    <div class="botones" id="botones-accion" style="display: none;">
-      <button class="btn" id="btn-modificar">Modificar</button>
-      <button class="btn btn-cancelar" id="btn-cancelar">Cancelar</button>
-    </div>
+    <div class="main">
+        <!-- Logo dentro de la app -->
+        <img src="static/logo.png" class="logo-app" alt="NexusTurn" onerror="this.style.display='none'">
 
-    <div>
-      <div class="section-title">Alertas</div>
-      <div class="alertas-lista">
-        <div class="alerta" id="alerta-cerca">
-          <div class="alerta-icon naranja"></div>
-          <span id="alerta-cerca-texto">Tu turno está a 3 lugares</span>
+        <!-- Estado: sin turno (botón solicitar) -->
+        <div id="vista-solicitar">
+            <button class="btn-solicitar" id="btn-solicitar">Solicitar turno</button>
+            <div id="error-msg" class="alerta error hidden"></div>
         </div>
-        <div class="alerta" id="alerta-llamado">
-          <div class="alerta-icon verde"></div>
-          Tu turno está siendo atendido
+
+        <!-- Estado: con turno (tarjeta + alerta + botones) -->
+        <div id="vista-turno" class="hidden">
+            <div class="card">
+                <div class="card-label">Tu turno</div>
+                <div id="turno-numero" class="turno-numero">—</div>
+                <div id="turno-info" class="turno-info">Ventanilla — · Estimado — min</div>
+            </div>
+
+            <div id="alerta-dinamica" class="alerta">
+                Cargando estado...
+            </div>
+
+            <div class="botones">
+                <button class="btn-modificar" id="btn-modificar">Modificar</button>
+                <button class="btn-cancelar" id="btn-cancelar">Cancelar</button>
+            </div>
         </div>
-      </div>
     </div>
 
-  </div>
+    <div class="footer">
+        Sistema de turnos local
+    </div>
+</div>
 
-  <script>
-    let turnoActual = null;
-    let wsUsuario   = null;
+<script>
+// ========== VARIABLES GLOBALES ==========
+let turnoActual = null;      // { id, numero, estado, posicion, ventanilla, tiempo_estimado }
+let wsUsuario = null;
 
-    const btnSolicitar   = document.getElementById('btn-solicitar');
-    const btnModificar   = document.getElementById('btn-modificar');
-    const btnCancelar    = document.getElementById('btn-cancelar');
-    const errorMsg       = document.getElementById('error-msg');
-    const turnoCard      = document.getElementById('turno-card');
-    const vistaSolicitar = document.getElementById('vista-solicitar');
-    const botonesAccion  = document.getElementById('botones-accion');
+// Elementos DOM
+const splash = document.getElementById('splash');
+const appDiv = document.getElementById('app');
+const vistaSolicitar = document.getElementById('vista-solicitar');
+const vistaTurno = document.getElementById('vista-turno');
+const btnSolicitar = document.getElementById('btn-solicitar');
+const btnModificar = document.getElementById('btn-modificar');
+const btnCancelar = document.getElementById('btn-cancelar');
+const errorMsgDiv = document.getElementById('error-msg');
+const turnoNumeroSpan = document.getElementById('turno-numero');
+const turnoInfoSpan = document.getElementById('turno-info');
+const alertaDinamica = document.getElementById('alerta-dinamica');
+const btnAsistente = document.getElementById('btn-asistente');
 
-    btnSolicitar.addEventListener('click', solicitarTurno);
-    btnModificar.addEventListener('click', modificarTurno);
-    btnCancelar.addEventListener('click',  cancelarTurno);
+// ========== REDIRECCIÓN AL CHATBOT ==========
+btnAsistente.addEventListener('click', () => {
+    window.location.href = '/static/chatbot.html';
+});
 
-    // ── UI ────────────────────────────────────────────────────
+// ========== SONIDO (breve beep al final del splash) ==========
+function reproducirSonido() {
+    let audio = new Audio();
+    audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+    audio.play().catch(e => console.log("Sonido no soportado:", e));
+}
 
-    function mostrarTurno(datos) {
-      turnoActual = datos;
-      document.getElementById('num-turno').textContent = datos.numero;
+// ========== SPLASH (duración 2.5s) ==========
+setTimeout(() => {
+    reproducirSonido();
+    splash.classList.add("ocultar");
+    setTimeout(() => {
+        splash.style.display = "none";
+        appDiv.style.display = "flex";
+        limpiarVista();
+    }, 500);
+}, 2500);
 
-      // Al solicitar el turno, el servidor devuelve `personas_delante`.
-      // El WebSocket luego usará `posicion`. Normalizamos aquí.
-      const posicion = datos.posicion ?? datos.personas_delante ?? 0;
-      actualizarDetalle({
-        estado:          datos.estado ?? 'EN_COLA',
-        posicion:        posicion,
-        ventanilla:      datos.ventanilla,
+// ========== FUNCIONES DE UI ==========
+function mostrarTurno(datos) {
+    turnoActual = datos;
+    turnoNumeroSpan.textContent = datos.numero;
+    actualizarDetalle({
+        estado: datos.estado,
+        posicion: datos.posicion,
+        ventanilla: datos.ventanilla,
         tiempo_estimado: datos.tiempo_estimado
-      });
+    });
+    vistaSolicitar.classList.add('hidden');
+    vistaTurno.classList.remove('hidden');
+    btnModificar.disabled = false;
+    btnCancelar.disabled = false;
+    btnModificar.textContent = 'Modificar';
+    btnCancelar.textContent = 'Cancelar';
+    conectarWsUsuario(datos.id);
+}
 
-      vistaSolicitar.style.display = 'none';
-      turnoCard.classList.add('visible');
-      botonesAccion.style.display  = 'grid';
-      btnModificar.textContent = 'Modificar';
-      btnModificar.disabled    = false;
-      btnCancelar.textContent  = 'Cancelar';
-      btnCancelar.disabled     = false;
+function actualizarDetalle(datos) {
+    const ventanilla = datos.ventanilla ?? '—';
+    const tiempo = datos.tiempo_estimado ?? 0;
+    turnoInfoSpan.textContent = `Ventanilla ${ventanilla} · Estimado ${tiempo} min`;
 
-      conectarWsUsuario(datos.id);
+    if (datos.estado === 'LLAMADO' || datos.estado === 'ATENDIENDO') {
+        alertaDinamica.textContent = '🔔 ¡Tu turno está siendo atendido! Dirígete a la ventanilla.';
+        alertaDinamica.classList.add('activo');
+        alertaDinamica.classList.remove('error');
+    } else if (datos.posicion === 0) {
+        alertaDinamica.textContent = '⏳ Eres el siguiente en la cola. Prepara tus documentos.';
+        alertaDinamica.classList.add('activo');
+        alertaDinamica.classList.remove('error');
+    } else if (datos.posicion <= 3) {
+        alertaDinamica.textContent = `📌 Tu turno está a ${datos.posicion} ${datos.posicion === 1 ? 'lugar' : 'lugares'}.`;
+        alertaDinamica.classList.remove('activo');
+        alertaDinamica.classList.remove('error');
+    } else {
+        alertaDinamica.textContent = `🕒 Hay ${datos.posicion} personas delante. Espera un momento.`;
+        alertaDinamica.classList.remove('activo');
+        alertaDinamica.classList.remove('error');
     }
+}
 
-    function actualizarDetalle(datos) {
-      // datos siempre tiene: estado, posicion, ventanilla, tiempo_estimado
-      const ventanilla = datos.ventanilla ?? '—';
-      const tiempo     = datos.tiempo_estimado ?? 0;
-      document.getElementById('turno-detalle').textContent =
-        `Ventanilla ${ventanilla} · Estimado ${tiempo} min`;
+function limpiarVista() {
+    turnoActual = null;
+    if (wsUsuario) { wsUsuario.close(); wsUsuario = null; }
+    vistaTurno.classList.add('hidden');
+    vistaSolicitar.classList.remove('hidden');
+    btnSolicitar.disabled = false;
+    btnSolicitar.textContent = 'Solicitar turno';
+    errorMsgDiv.classList.add('hidden');
+    alertaDinamica.textContent = 'Cargando estado...';
+    alertaDinamica.classList.remove('activo', 'error');
+}
 
-      // Resetea alertas
-      document.getElementById('alerta-cerca').classList.remove('visible');
-      document.getElementById('alerta-llamado').classList.remove('visible');
+function mostrarError(mensaje) {
+    errorMsgDiv.textContent = mensaje;
+    errorMsgDiv.classList.remove('hidden');
+}
 
-      if (datos.estado === 'LLAMADO' || datos.estado === 'ATENDIENDO') {
-        document.getElementById('alerta-llamado').classList.add('visible');
-      } else if (datos.posicion === 0) {
-        // Es el primero en la cola pero aún no ha sido llamado
-        document.getElementById('alerta-llamado').classList.add('visible');
-      } else if (datos.posicion <= 3) {
-        // Actualiza el texto con el número exacto de personas delante
-        document.getElementById('alerta-cerca-texto').textContent =
-          `Tu turno está a ${datos.posicion} ${datos.posicion === 1 ? 'lugar' : 'lugares'}`;
-        document.getElementById('alerta-cerca').classList.add('visible');
-      }
-    }
-
-    function limpiarVista() {
-      turnoActual = null;
-
-      if (wsUsuario) { wsUsuario.close(); wsUsuario = null; }
-
-      turnoCard.classList.remove('visible');
-      botonesAccion.style.display  = 'none';
-      vistaSolicitar.style.display = 'block';
-      btnSolicitar.textContent = 'Solicitar turno';
-      btnSolicitar.disabled    = false;
-      document.getElementById('alerta-cerca').classList.remove('visible');
-      document.getElementById('alerta-llamado').classList.remove('visible');
-    }
-
-    // ── WebSocket ─────────────────────────────────────────────
-
-    function conectarWsUsuario(turnoId) {
-      if (wsUsuario) wsUsuario.close();
-      wsUsuario = new WebSocket(`ws://${location.host}/api/ws/turno/${turnoId}`);
-
-      wsUsuario.onmessage = (evento) => {
-        const datos = JSON.parse(evento.data);
-        actualizarDetalle(datos);   // posicion ya viene correcta del servidor
-      };
-
-      wsUsuario.onclose = () => {
+// ========== WEBSOCKET ==========
+function conectarWsUsuario(turnoId) {
+    if (wsUsuario) wsUsuario.close();
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsUsuario = new WebSocket(`${protocol}//${location.host}/api/ws/turno/${turnoId}`);
+    wsUsuario.onmessage = (evento) => {
+        try {
+            const datos = JSON.parse(evento.data);
+            if (turnoActual && datos) {
+                turnoActual = { ...turnoActual, ...datos };
+                actualizarDetalle(datos);
+            }
+        } catch (e) { console.warn('Error parseando WS:', e); }
+    };
+    wsUsuario.onclose = () => {
         if (turnoActual) setTimeout(() => conectarWsUsuario(turnoActual.id), 3000);
-      };
-    }
+    };
+}
 
-    // ── API ───────────────────────────────────────────────────
-
-    async function solicitarTurno() {
-      btnSolicitar.textContent = 'Solicitando...';
-      btnSolicitar.disabled    = true;
-      errorMsg.style.display   = 'none';
-      try {
+// ========== LLAMADAS A LA API ==========
+async function solicitarTurno() {
+    btnSolicitar.disabled = true;
+    btnSolicitar.textContent = 'Solicitando...';
+    errorMsgDiv.classList.add('hidden');
+    try {
         const res = await fetch('/api/turno', { method: 'POST' });
         if (!res.ok) throw new Error(`Error ${res.status}`);
-        mostrarTurno(await res.json());
-      } catch (err) {
+        const datos = await res.json();
+        mostrarTurno(datos);
+    } catch (err) {
         console.error(err);
+        mostrarError('No se pudo obtener turno. ¿El servidor está activo?');
+        btnSolicitar.disabled = false;
         btnSolicitar.textContent = 'Solicitar turno';
-        btnSolicitar.disabled    = false;
-        errorMsg.style.display   = 'block';
-      }
     }
+}
 
-    async function modificarTurno() {
-      if (!turnoActual) return;
-      btnModificar.textContent = 'Modificando...';
-      btnModificar.disabled    = true;
-      btnCancelar.disabled     = true;
-      try {
-        const r1 = await fetch(`/api/turno/${turnoActual.id}/cancelar`, { method: 'PATCH' });
-        if (!r1.ok) throw new Error(`Error al cancelar: ${r1.status}`);
-        const r2 = await fetch('/api/turno', { method: 'POST' });
-        if (!r2.ok) throw new Error(`Error al solicitar: ${r2.status}`);
-        mostrarTurno(await r2.json());
-      } catch (err) {
+async function modificarTurno() {
+    if (!turnoActual) return;
+    btnModificar.disabled = true;
+    btnCancelar.disabled = true;
+    btnModificar.textContent = 'Modificando...';
+    try {
+        const cancelRes = await fetch(`/api/turno/${turnoActual.id}/cancelar`, { method: 'PATCH' });
+        if (!cancelRes.ok) throw new Error(`Error al cancelar: ${cancelRes.status}`);
+        const newRes = await fetch('/api/turno', { method: 'POST' });
+        if (!newRes.ok) throw new Error(`Error al crear nuevo turno: ${newRes.status}`);
+        const nuevoTurno = await newRes.json();
+        mostrarTurno(nuevoTurno);
+    } catch (err) {
         console.error(err);
+        mostrarError('Error al modificar turno. Intenta de nuevo.');
+        btnModificar.disabled = false;
+        btnCancelar.disabled = false;
         btnModificar.textContent = 'Modificar';
-        btnModificar.disabled    = false;
-        btnCancelar.disabled     = false;
-      }
     }
+}
 
-    async function cancelarTurno() {
-      if (!turnoActual) return;
-      btnCancelar.textContent = 'Cancelando...';
-      btnCancelar.disabled    = true;
-      btnModificar.disabled   = true;
-      try {
+async function cancelarTurno() {
+    if (!turnoActual) return;
+    btnCancelar.disabled = true;
+    btnModificar.disabled = true;
+    btnCancelar.textContent = 'Cancelando...';
+    try {
         const res = await fetch(`/api/turno/${turnoActual.id}/cancelar`, { method: 'PATCH' });
         if (!res.ok) throw new Error(`Error ${res.status}`);
         limpiarVista();
-      } catch (err) {
+    } catch (err) {
         console.error(err);
+        mostrarError('No se pudo cancelar el turno. Intenta de nuevo.');
+        btnCancelar.disabled = false;
+        btnModificar.disabled = false;
         btnCancelar.textContent = 'Cancelar';
-        btnCancelar.disabled    = false;
-        btnModificar.disabled   = false;
-      }
     }
-  </script>
+}
+
+// ========== ASIGNAR EVENTOS ==========
+btnSolicitar.addEventListener('click', solicitarTurno);
+btnModificar.addEventListener('click', modificarTurno);
+btnCancelar.addEventListener('click', cancelarTurno);
+
+limpiarVista();
+</script>
 </body>
 </html>
